@@ -11,6 +11,12 @@ export async function getStatus() {
   return res.json()
 }
 
+export async function getAvailableModels() {
+  const res = await fetch(`${API}/models`)
+  if (!res.ok) throw new Error('Error al obtener modelos')
+  return res.json()
+}
+
 export async function uploadDocument(file) {
   const form = new FormData()
   form.append('file', file)
@@ -20,40 +26,77 @@ export async function uploadDocument(file) {
   return data
 }
 
-export async function askQuestion(question) {
+export async function askQuestion(question, model = 'gemini-2.0-flash') {
   const res = await fetch(`${API}/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, model }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.detail || `Error ${res.status}`)
   return data
 }
 
-export async function getSummary() {
-  const res = await fetch(`${API}/summarize`, { method: 'POST' })
+export async function getSummary(model = 'gemini-2.0-flash') {
+  const res = await fetch(`${API}/summarize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model }),
+  })
   const data = await res.json()
   if (!res.ok) throw new Error(data.detail || `Error ${res.status}`)
   return data
 }
 
-export async function getFlashcards(count = 5) {
+export async function getFlashcards(count = 5, model = 'gemini-2.0-flash') {
   const res = await fetch(`${API}/flashcards`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ count }),
+    body: JSON.stringify({ count, model }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.detail || `Error ${res.status}`)
   return data
 }
 
-export async function getQuiz(count = 5, type = 'multiple_choice') {
+export async function getQuiz(count = 5, type = 'multiple_choice', model = 'gemini-2.0-flash') {
   const res = await fetch(`${API}/quiz`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ count, type }),
+    body: JSON.stringify({ count, type, model }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || `Error ${res.status}`)
+  return data
+}
+
+export async function checkQuizAnswers(answers, model = 'gemini-2.0-flash') {
+  const res = await fetch(`${API}/quiz/check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers, model }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || `Error ${res.status}`)
+  return data
+}
+
+export async function getQuizAdvanced(count = 7, model = 'gemini-2.0-flash') {
+  const res = await fetch(`${API}/quiz/advanced`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ count, model }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || `Error ${res.status}`)
+  return data
+}
+
+export async function checkQuizAdvancedAnswers(answers, model = 'gemini-2.0-flash') {
+  const res = await fetch(`${API}/quiz/advanced/check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers, model }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.detail || `Error ${res.status}`)

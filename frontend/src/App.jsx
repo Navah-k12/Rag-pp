@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  checkHealth, getStatus, uploadDocument,
-  askQuestion, getSummary, getFlashcards, getQuiz,
+  checkHealth, getStatus, getAvailableModels, uploadDocument,
+  askQuestion, getSummary, getFlashcards, getQuiz, checkQuizAnswers,
+  getQuizAdvanced, checkQuizAdvancedAnswers,
 } from './api'
 import ChatWindow from './components/ChatWindow'
 import HistoryModal from './components/HistoryModal'
@@ -22,6 +23,9 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [docName, setDocName] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [model, setModel] = useState('gemini-2.0-flash')
+  const [availableModels, setAvailableModels] = useState({})
+  const [quizState, setQuizState] = useState(null)
   const fileRef = useRef(null)
   const histRef = useRef([])
   const histIdx = useRef(-1)
@@ -41,6 +45,7 @@ export default function App() {
         getStatus().then(s => {
           if (s.document?.filename) setDocName(s.document.filename)
         }).catch(() => {})
+        getAvailableModels().then(m => setAvailableModels(m.models)).catch(() => {})
       }
     })
   }, [])
@@ -60,26 +65,92 @@ export default function App() {
     setBusy(false)
   }
 
+  async function startQuiz() {
+    setBusy(true)
+    addMsg('Generando examen...', 'system')
+    try {
+      const data = await getQuiz(5, 'multiple_choice', model)
+      setQuizState({ questions: data.quiz, results: null, mode: 'basic' })
+    } catch (err) {
+      addMsg(`✖ ${esc(err.message)}`, 'system')
+    }
+    setBusy(false)
+  }
+
+  async function startAdvancedQuiz() {
+    setBusy(true)
+    addMsg('Generando examen avanzado (preguntas abiertas + cerradas)...', 'system')
+    try {
+      const data = await getQuizAdvanced(7, model)
+      setQuizState({ questions: data.quiz, results: null, mode: 'advanced' })
+    } catch (err) {
+      addMsg(`✖ ${esc(err.message)}`, 'system')
+    }
+    setBusy(false)
+  }
+
+  async function submitQuiz(answers) {
+    setBusy(true)
+    addMsg('Verificando respuestas...', 'system')
+    try {
+      const isAdvanced = quizState?.mode === 'advanced'
+      const data = isAdvanced
+        ? await checkQuizAdvancedAnswers(answers, model)
+        : await checkQuizAnswers(answers, model)
+      setQuizState(p => ({ ...p, results: data }))
+      addMsg(
+        `📝 Resultado: <span class="text-yellow">${data.score}/${data.total}</span> ` +
+        `(<span class="text-purple-bright">${data.percentage}%</span>)`,
+        'ai'
+      )
+      addMsg(data.message, 'ai')
+    } catch (err) {
+      addMsg(`✖ ${esc(err.message)}`, 'system')
+    }
+    setBusy(false)
+  }
+
+  function retryQuiz() {
+    const mode = quizState?.mode
+    setQuizState(null)
+    if (mode === 'advanced') {
+      startAdvancedQuiz()
+    } else {
+      startQuiz()
+    }
+  }
+
   async function execCommand(cmd) {
     setBusy(true)
     try {
       let data
       const errMsg = (cmd) => `Comando desconocido: <span class="text-yellow">:${cmd}</span>. Usa <span class="text-yellow">:help</span>`
       switch (cmd) {
-        case 'help':
+        case 'help': {
+          const doc = docName
+            ? `<span class="text-green">${esc(docName)}</span>`
+            : '<span class="text-yellow">Ninguno (sube un documento primero)</span>'
           addMsg(
-            '<span class="text-yellow">:help</span> — esta ayuda<br>' +
-            '<span class="text-yellow">:summary</span> — resumen del documento<br>' +
-            '<span class="text-yellow">:flashcards</span> — genera flashcards<br>' +
-            '<span class="text-yellow">:quiz</span> — genera examen<br>' +
-            '<span class="text-yellow">:status</span> — estado del servidor',
+            `<span class="text-purple-bright">📄 Documento:</span> ${doc}<br><br>` +
+            '<span class="text-purple-bright">📋 Opciones de estudio:</span><br>' +
+            '&nbsp;&nbsp;<span class="text-yellow">:summary</span> — genera un resumen estructurado del documento<br>' +
+            '&nbsp;&nbsp;<span class="text-yellow">:flashcards</span> — crea flashcards de estudio<br>' +
+            '&nbsp;&nbsp;<span class="text-yellow">:quiz</span> — examen de opción múltiple<br>' +
+            '&nbsp;&nbsp;<span class="text-yellow">:quiz-advanced</span> — examen mixto (abiertas + cerradas)<br><br>' +
+            '<span class="text-purple-bright">💬 Consultas:</span><br>' +
+            '&nbsp;&nbsp;Escribe cualquier pregunta sobre el documento directamente<br><br>' +
+            '<span class="text-purple-bright">⚙ Comandos:</span><br>' +
+            '&nbsp;&nbsp;<span class="text-yellow">:status</span> — estado del servidor<br>' +
+            '&nbsp;&nbsp;<span class="text-yellow">:help</span> — esta ayuda',
             'system'
           )
           break
+        }
         case 'status': {
           const s = await getStatus()
           addMsg(
             `API Key: ${s.api_key_configured ? '✅' : '❌'}<br>` +
+            `Groq (fallback): ${s.groq_configured ? '✅' : '❌'}<br>` +
             `Documento: ${s.document?.filename || 'Ninguno'}`,
             'system'
           )
@@ -87,26 +158,21 @@ export default function App() {
         }
         case 'summary':
           addMsg('Generando resumen...', 'system')
-          data = await getSummary()
+          data = await getSummary(model)
           addMsg(data.summary, 'ai')
           break
         case 'flashcards':
           addMsg('Generando flashcards...', 'system')
-          data = await getFlashcards(5)
+          data = await getFlashcards(5, model)
           data.flashcards.forEach((c, i) => {
             addMsg(`<span class="text-yellow">#${i + 1}: ${esc(c.front)}</span><br><span class="text-dim">${esc(c.back)}</span>`, 'ai')
           })
           break
         case 'quiz':
-          addMsg('Generando examen...', 'system')
-          data = await getQuiz(5, 'mixed')
-          data.quiz.forEach((q, i) => {
-            let html = `<span class="text-yellow">${i + 1}. ${esc(q.question)}</span><br>`
-            if (q.options) q.options.forEach(o => { html += `&nbsp;${esc(o)}<br>` })
-            html += `&nbsp;<span class="text-green">✔ ${esc(q.answer)}</span><br>`
-            html += `&nbsp;<span class="text-dim italic">${esc(q.explanation)}</span>`
-            addMsg(html, 'ai')
-          })
+          await startQuiz()
+          break
+        case 'quiz-advanced':
+          await startAdvancedQuiz()
           break
         default:
           addMsg(errMsg(cmd), 'system')
@@ -133,7 +199,7 @@ export default function App() {
     setBusy(true)
     addMsg(esc(q), 'user')
     try {
-      const data = await askQuestion(q)
+      const data = await askQuestion(q, model)
       addMsg(data.answer, 'ai')
     } catch (err) {
       addMsg(`✖ ${esc(err.message)}`, 'system')
@@ -159,6 +225,12 @@ export default function App() {
           docName={docName}
           onUpload={() => fileRef.current?.click()}
           onOpenHistory={() => setShowHistory(true)}
+          model={model}
+          setModel={setModel}
+          availableModels={availableModels}
+          quizState={quizState}
+          onQuizSubmit={submitQuiz}
+          onQuizRetry={retryQuiz}
         />
       </div>
 
