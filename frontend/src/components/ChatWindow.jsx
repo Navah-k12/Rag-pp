@@ -10,6 +10,7 @@ import {
   Lightbulb,
   StickyNote,
   GraduationCap,
+  Bot,
 } from 'lucide-react'
 import ChatMessage from './ChatMessage.jsx'
 import { askQuestion } from '../api.js'
@@ -45,6 +46,9 @@ export default function ChatWindow({
   onCommand,
   theme,
   onToggleTheme,
+  model,
+  setModel,
+  availableModels,
 }) {
   const chatRef = useRef(null)
   const doubtsRef = useRef(null)
@@ -76,7 +80,7 @@ export default function ChatWindow({
     setDoubtBusy(true)
     setDoubtMsgs((p) => [...p, { id: Date.now() + Math.random(), timestamp: time(), role: 'user', content: esc(q) }])
     try {
-      const data = await askQuestion(q)
+      const data = await askQuestion(q, model)
       setDoubtMsgs((p) => [...p, { id: Date.now() + Math.random(), timestamp: time(), role: 'ai', content: data.answer }])
     } catch (err) {
       setDoubtMsgs((p) => [...p, { id: Date.now() + Math.random(), timestamp: time(), role: 'system', content: esc(err.message) }])
@@ -280,6 +284,32 @@ export default function ChatWindow({
               >
                 <Send className="h-3.5 w-3.5" />
               </button>
+            </div>
+          </div>
+
+          {/* model selector */}
+          <div>
+            <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-ink">
+              <Bot className="h-4 w-4 text-brand" /> Modelo de IA
+            </div>
+            <div className="space-y-1.5">
+              {Object.entries(availableModels).map(([key, info]) => (
+                <button
+                  key={key}
+                  onClick={() => setModel(key)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                    model === key
+                      ? 'border-brand/50 bg-brand/10 text-brand'
+                      : 'border-line bg-panel text-ink hover:border-line hover:bg-panel-2'
+                  }`}
+                >
+                  <div className="text-[12px] font-semibold">{info.name}</div>
+                  <div className="text-[10px] text-sub">{info.provider}</div>
+                </button>
+              ))}
+              {Object.keys(availableModels).length === 0 && (
+                <p className="text-[11px] text-sub/70">No hay modelos disponibles</p>
+              )}
             </div>
           </div>
 

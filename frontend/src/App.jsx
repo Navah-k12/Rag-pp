@@ -4,6 +4,7 @@ import HistoryModal from './components/HistoryModal.jsx'
 import {
   askQuestion,
   checkHealth,
+  getAvailableModels,
   getFlashcards,
   getQuiz,
   getStatus,
@@ -36,6 +37,8 @@ export default function App() {
   const [docName, setDocName] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
   const [theme, setTheme] = useState(getInitialTheme)
+  const [model, setModel] = useState('gemini-2.0-flash')
+  const [availableModels, setAvailableModels] = useState({})
   const fileRef = useRef(null)
 
   // apply theme to <html>
@@ -60,6 +63,9 @@ export default function App() {
           .then((s) => {
             if (s.document?.filename) setDocName(s.document.filename)
           })
+          .catch(() => {})
+        getAvailableModels()
+          .then((m) => setAvailableModels(m.models))
           .catch(() => {})
       }
     })
@@ -100,13 +106,13 @@ export default function App() {
         }
         case 'summary': {
           addMsg('Generando resumen...', 'system')
-          const data = await getSummary()
+          const data = await getSummary(model)
           addMsg(esc(data.summary), 'ai')
           break
         }
         case 'flashcards': {
           addMsg('Generando flashcards...', 'system')
-          const data = await getFlashcards(5)
+          const data = await getFlashcards(5, model)
           data.flashcards.forEach((c, i) => {
             addMsg(
               `<strong>#${i + 1} · ${esc(c.front)}</strong><br>${esc(c.back)}`,
@@ -117,7 +123,7 @@ export default function App() {
         }
         case 'quiz': {
           addMsg('Generando examen...', 'system')
-          const data = await getQuiz(5, 'mixed')
+          const data = await getQuiz(5, 'mixed', model)
           data.quiz.forEach((q, i) => {
             let html = `<strong>${i + 1}. ${esc(q.question)}</strong><br>`
             if (q.options) q.options.forEach((o) => (html += `${esc(o)}<br>`))
@@ -150,7 +156,7 @@ export default function App() {
     setBusy(true)
     addMsg(esc(q), 'user')
     try {
-      const data = await askQuestion(q)
+      const data = await askQuestion(q, model)
       addMsg(esc(data.answer), 'ai')
     } catch (err) {
       addMsg(`Error: ${esc(err.message)}`, 'system')
@@ -180,6 +186,9 @@ export default function App() {
           onCommand={(cmd) => handleSend(cmd)}
           theme={theme}
           onToggleTheme={toggleTheme}
+          model={model}
+          setModel={setModel}
+          availableModels={availableModels}
         />
       </div>
 
