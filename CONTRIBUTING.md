@@ -1,36 +1,45 @@
 # Contribuir a StudyRAG
 
-## Flujo de trabajo (GitHub Flow)
+Gracias por tu interés en contribuir a StudyRAG.
 
-Antes de escribir cualquier línea de código, siempre partir de main actualizado:
+## Estructura del Proyecto
 
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature/lo-que-vas-a-hacer
+```
+RAG-PP/
+├── backend/          → ASP.NET Core (futuro)
+├── rag-service/      → Python/FastAPI + LangChain (servicio RAG)
+├── frontend/         → React + Vite + Tailwind CSS
+├── docs/             → Documentación del proyecto
+└── uploads/          → Datos de procesamiento (gitignored)
 ```
 
-## Convención de nombres para ramas
+## Guías de Contribución
 
-| Prefijo  | Cuándo usarlo       | Ejemplo            |
-|---       |---                  |---                 |
-| feature/ | Funcionalidad nueva | feature/login-page |
-| fix/     | Corregir un bug     | fix/error-api-null |
-| docs/    | Documentación       | docs/update-readme |
-| chore/   | Mantenimiento       | chore/update-deps  |
+1. Crea una rama para tu feature (`git checkout -b feature/nombre`)
+2. Haz commits descriptivos
+3. Abre un Pull Request con una descripción clara de los cambios
 
-## Convención de commits
-feat: descripción     → funcionalidad nueva
-fix: descripción      → corrección de bug
-docs: descripción     → documentación
-chore: descripción    → mantenimiento
+## Desarrollo
 
-## Después de terminar
+### rag-service (Backend Python)
 
 ```bash
-git add .
-git commit -m "tipo: descripción del cambio"
-git push origin nombre-de-tu-rama
+cd rag-service
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-Abrir Pull Request en GitHub → describir los cambios → mergear → eliminar rama. 
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Estilo de Código
+
+- Python: sigue PEP 8
+- JavaScript/JSX: usa el linter del proyecto (oxlint)
