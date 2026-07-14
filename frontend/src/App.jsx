@@ -1,14 +1,18 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import ChatWindow from './components/ChatWindow.jsx'
+import HistoryModal from './components/HistoryModal.jsx'
 import {
-  checkHealth, getStatus, getAvailableModels, uploadDocument,
-  askQuestion, getSummary, getFlashcards, getQuiz, checkQuizAnswers,
-  getQuizAdvanced, checkQuizAdvancedAnswers,
-} from './api'
-import ChatWindow from './components/ChatWindow'
-import HistoryModal from './components/HistoryModal'
+  askQuestion,
+  checkHealth,
+  getFlashcards,
+  getQuiz,
+  getStatus,
+  getSummary,
+  uploadDocument,
+} from './api.js'
 
 function time() {
-  return new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 }
 
 function esc(s) {
@@ -17,35 +21,46 @@ function esc(s) {
   return d.innerHTML
 }
 
+function getInitialTheme() {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('studyrag-theme')
+    if (saved === 'light' || saved === 'dark') return saved
+  }
+  return 'dark'
+}
+
 export default function App() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [docName, setDocName] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
-  const [model, setModel] = useState('gemini-2.0-flash')
-  const [availableModels, setAvailableModels] = useState({})
-  const [quizState, setQuizState] = useState(null)
+  const [theme, setTheme] = useState(getInitialTheme)
   const fileRef = useRef(null)
-  const histRef = useRef([])
-  const histIdx = useRef(-1)
+
+  // apply theme to <html>
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('dark', theme === 'dark')
+    localStorage.setItem('studyrag-theme', theme)
+  }, [theme])
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+  }, [])
 
   const addMsg = useCallback((content, role = 'system') => {
-    setMessages(p => [...p, {
-      id: Date.now() + Math.random(),
-      timestamp: time(),
-      role,
-      content,
-    }])
+    setMessages((p) => [...p, { id: Date.now() + Math.random(), timestamp: time(), role, content }])
   }, [])
 
   useEffect(() => {
-    checkHealth().then(ok => {
+    checkHealth().then((ok) => {
       if (ok) {
-        getStatus().then(s => {
-          if (s.document?.filename) setDocName(s.document.filename)
-        }).catch(() => {})
-        getAvailableModels().then(m => setAvailableModels(m.models)).catch(() => {})
+        getStatus()
+          .then((s) => {
+            if (s.document?.filename) setDocName(s.document.filename)
+          })
+          .catch(() => {})
       }
     })
   }, [])
@@ -54,144 +69,80 @@ export default function App() {
     const f = files[0]
     if (!f) return
     setBusy(true)
-    addMsg(`📎 Subiendo <span class="text-yellow">${esc(f.name)}</span>`, 'system')
+    addMsg(`Subiendo <strong>${esc(f.name)}</strong>...`, 'system')
     try {
       const data = await uploadDocument(f)
       setDocName(f.name)
-      addMsg(`✔ ${data.message} — ${data.chunks} fragmentos`, 'system')
+      addMsg(`${esc(data.message)} — ${data.chunks} fragmentos indexados.`, 'system')
     } catch (err) {
-      addMsg(`✖ ${esc(err.message)}`, 'system')
+      addMsg(`Error: ${esc(err.message)}`, 'system')
     }
     setBusy(false)
-  }
-
-  async function startQuiz() {
-    setBusy(true)
-    addMsg('Generando examen...', 'system')
-    try {
-      const data = await getQuiz(5, 'multiple_choice', model)
-      setQuizState({ questions: data.quiz, results: null, mode: 'basic' })
-    } catch (err) {
-      addMsg(`✖ ${esc(err.message)}`, 'system')
-    }
-    setBusy(false)
-  }
-
-  async function startAdvancedQuiz() {
-    setBusy(true)
-    addMsg('Generando examen avanzado (preguntas abiertas + cerradas)...', 'system')
-    try {
-      const data = await getQuizAdvanced(7, model)
-      setQuizState({ questions: data.quiz, results: null, mode: 'advanced' })
-    } catch (err) {
-      addMsg(`✖ ${esc(err.message)}`, 'system')
-    }
-    setBusy(false)
-  }
-
-  async function submitQuiz(answers) {
-    setBusy(true)
-    addMsg('Verificando respuestas...', 'system')
-    try {
-      const isAdvanced = quizState?.mode === 'advanced'
-      const data = isAdvanced
-        ? await checkQuizAdvancedAnswers(answers, model)
-        : await checkQuizAnswers(answers, model)
-      setQuizState(p => ({ ...p, results: data }))
-      addMsg(
-        `📝 Resultado: <span class="text-yellow">${data.score}/${data.total}</span> ` +
-        `(<span class="text-purple-bright">${data.percentage}%</span>)`,
-        'ai'
-      )
-      addMsg(data.message, 'ai')
-    } catch (err) {
-      addMsg(`✖ ${esc(err.message)}`, 'system')
-    }
-    setBusy(false)
-  }
-
-  function retryQuiz() {
-    const mode = quizState?.mode
-    setQuizState(null)
-    if (mode === 'advanced') {
-      startAdvancedQuiz()
-    } else {
-      startQuiz()
-    }
   }
 
   async function execCommand(cmd) {
     setBusy(true)
     try {
-      let data
-      const errMsg = (cmd) => `Comando desconocido: <span class="text-yellow">:${cmd}</span>. Usa <span class="text-yellow">:help</span>`
       switch (cmd) {
-        case 'help': {
-          const doc = docName
-            ? `<span class="text-green">${esc(docName)}</span>`
-            : '<span class="text-yellow">Ninguno (sube un documento primero)</span>'
+        case 'help':
           addMsg(
-            `<span class="text-purple-bright">📄 Documento:</span> ${doc}<br><br>` +
-            '<span class="text-purple-bright">📋 Opciones de estudio:</span><br>' +
-            '&nbsp;&nbsp;<span class="text-yellow">:summary</span> — genera un resumen estructurado del documento<br>' +
-            '&nbsp;&nbsp;<span class="text-yellow">:flashcards</span> — crea flashcards de estudio<br>' +
-            '&nbsp;&nbsp;<span class="text-yellow">:quiz</span> — examen de opción múltiple<br>' +
-            '&nbsp;&nbsp;<span class="text-yellow">:quiz-advanced</span> — examen mixto (abiertas + cerradas)<br><br>' +
-            '<span class="text-purple-bright">💬 Consultas:</span><br>' +
-            '&nbsp;&nbsp;Escribe cualquier pregunta sobre el documento directamente<br><br>' +
-            '<span class="text-purple-bright">⚙ Comandos:</span><br>' +
-            '&nbsp;&nbsp;<span class="text-yellow">:status</span> — estado del servidor<br>' +
-            '&nbsp;&nbsp;<span class="text-yellow">:help</span> — esta ayuda',
-            'system'
+            '<strong>:summary</strong> resumen · <strong>:flashcards</strong> tarjetas · <strong>:quiz</strong> examen · <strong>:status</strong> estado',
+            'system',
           )
           break
-        }
         case 'status': {
           const s = await getStatus()
           addMsg(
-            `API Key: ${s.api_key_configured ? '✅' : '❌'}<br>` +
-            `Groq (fallback): ${s.groq_configured ? '✅' : '❌'}<br>` +
-            `Documento: ${s.document?.filename || 'Ninguno'}`,
-            'system'
+            `API Key: ${s.api_key_configured ? 'configurada' : 'no configurada'} · Documento: ${s.document?.filename || 'ninguno'}`,
+            'system',
           )
           break
         }
-        case 'summary':
+        case 'summary': {
           addMsg('Generando resumen...', 'system')
-          data = await getSummary(model)
-          addMsg(data.summary, 'ai')
+          const data = await getSummary()
+          addMsg(esc(data.summary), 'ai')
           break
-        case 'flashcards':
+        }
+        case 'flashcards': {
           addMsg('Generando flashcards...', 'system')
-          data = await getFlashcards(5, model)
+          const data = await getFlashcards(5)
           data.flashcards.forEach((c, i) => {
-            addMsg(`<span class="text-yellow">#${i + 1}: ${esc(c.front)}</span><br><span class="text-dim">${esc(c.back)}</span>`, 'ai')
+            addMsg(
+              `<strong>#${i + 1} · ${esc(c.front)}</strong><br>${esc(c.back)}`,
+              'ai',
+            )
           })
           break
-        case 'quiz':
-          await startQuiz()
+        }
+        case 'quiz': {
+          addMsg('Generando examen...', 'system')
+          const data = await getQuiz(5, 'mixed')
+          data.quiz.forEach((q, i) => {
+            let html = `<strong>${i + 1}. ${esc(q.question)}</strong><br>`
+            if (q.options) q.options.forEach((o) => (html += `${esc(o)}<br>`))
+            html += `<span style="color:var(--good)">Respuesta: ${esc(q.answer)}</span><br>`
+            html += `<em>${esc(q.explanation)}</em>`
+            addMsg(html, 'ai')
+          })
           break
-        case 'quiz-advanced':
-          await startAdvancedQuiz()
-          break
+        }
         default:
-          addMsg(errMsg(cmd), 'system')
+          addMsg(`Comando desconocido: <strong>:${esc(cmd)}</strong>. Usa <strong>:help</strong>.`, 'system')
       }
     } catch (err) {
-      addMsg(`✖ ${esc(err.message)}`, 'system')
+      addMsg(`Error: ${esc(err.message)}`, 'system')
     }
     setBusy(false)
   }
 
   async function handleSend(text) {
-    const q = (text || input).trim()
+    const q = (text ?? input).trim()
     if (!q || busy) return
-    if (!text) setInput('')
-    histRef.current.push(q)
-    histIdx.current = -1
+    if (text === undefined) setInput('')
 
     if (q.startsWith(':')) {
-      addMsg(`<span class="text-dim">❯</span> ${esc(q)}`, 'system')
+      addMsg(esc(q), 'user')
       await execCommand(q.slice(1).split(/\s+/)[0].toLowerCase())
       return
     }
@@ -199,38 +150,36 @@ export default function App() {
     setBusy(true)
     addMsg(esc(q), 'user')
     try {
-      const data = await askQuestion(q, model)
-      addMsg(data.answer, 'ai')
+      const data = await askQuestion(q)
+      addMsg(esc(data.answer), 'ai')
     } catch (err) {
-      addMsg(`✖ ${esc(err.message)}`, 'system')
+      addMsg(`Error: ${esc(err.message)}`, 'system')
     }
     setBusy(false)
   }
 
   return (
-    <div
-      className="min-h-screen bg-dots flex flex-col items-center justify-center p-4 font-mono"
-      onDragOver={e => e.preventDefault()}
-      onDrop={e => { e.preventDefault(); handleUpload(e.dataTransfer.files) }}
+    <main
+      className="bg-grid flex min-h-screen flex-col items-center justify-center p-4 sm:p-6"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault()
+        handleUpload(e.dataTransfer.files)
+      }}
     >
-      <div className="text-center text-[13px] text-text/40 tracking-[0.3em] uppercase mb-2 select-none">StudyRag</div>
-
-      <div className="w-[1200px] max-w-full h-[780px] max-h-[95vh] rounded-xl overflow-hidden border border-border bg-bg shadow-lg flex flex-col">
+      <div className="flex h-[820px] max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-line bg-panel shadow-2xl">
         <ChatWindow
           messages={messages}
           input={input}
           setInput={setInput}
-          onSend={() => handleSend(input)}
+          onSend={() => handleSend()}
           busy={busy}
           docName={docName}
           onUpload={() => fileRef.current?.click()}
           onOpenHistory={() => setShowHistory(true)}
-          model={model}
-          setModel={setModel}
-          availableModels={availableModels}
-          quizState={quizState}
-          onQuizSubmit={submitQuiz}
-          onQuizRetry={retryQuiz}
+          onCommand={(cmd) => handleSend(cmd)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       </div>
 
@@ -239,15 +188,12 @@ export default function App() {
         type="file"
         accept=".pdf,.pptx,.txt,.png,.jpg,.jpeg,.webp"
         className="hidden"
-        onChange={e => e.target.files[0] && handleUpload(e.target.files)}
+        onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files)}
       />
 
       {showHistory && (
-        <HistoryModal
-          onClose={() => setShowHistory(false)}
-          onNewChat={() => setMessages([])}
-        />
+        <HistoryModal onClose={() => setShowHistory(false)} onNewChat={() => setMessages([])} />
       )}
-    </div>
+    </main>
   )
 }
