@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("StudyRAG.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3c004bacdc8da5bcb37c82d435dc0ab44f01fb6e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+aff216eefb6473ed7c48901d714b94a14280a60f")]
 [assembly: System.Reflection.AssemblyProductAttribute("StudyRAG.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("StudyRAG.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
