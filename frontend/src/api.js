@@ -1,4 +1,4 @@
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_RAG_API_URL || 'http://localhost:8000'
 
 export async function checkHealth() {
   const res = await fetch(`${API}/`)

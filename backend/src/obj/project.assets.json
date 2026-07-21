@@ -2512,11 +2512,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/navah/Documentos/Rag-pp/backend/src/StudyRAG.Api.csproj",
+      "projectUniqueName": "/home/navah/Documentos/GitHub/Rag-pp/backend/src/StudyRAG.Api.csproj",
       "projectName": "StudyRAG.Api",
-      "projectPath": "/home/navah/Documentos/Rag-pp/backend/src/StudyRAG.Api.csproj",
+      "projectPath": "/home/navah/Documentos/GitHub/Rag-pp/backend/src/StudyRAG.Api.csproj",
       "packagesPath": "/home/navah/.nuget/packages/",
-      "outputPath": "/home/navah/Documentos/Rag-pp/backend/src/obj/",
+      "outputPath": "/home/navah/Documentos/GitHub/Rag-pp/backend/src/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/navah/.nuget/NuGet/NuGet.Config"
@@ -2592,7 +2592,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/10.0.109/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/10.0.110/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.AspNetCore": "(,10.0.32767]",
           "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",

@@ -192,8 +192,25 @@ export default function ChatWindow({
             )}
           </div>
 
-          {/* command chips */}
+          {/* model selector + command chips */}
           <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-line bg-panel px-4 pt-2.5">
+            {/* model selector */}
+            <div className="flex items-center gap-1.5">
+              <Bot className="h-3.5 w-3.5 text-brand" />
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="rounded-lg border border-line bg-panel-2 px-2 py-1 text-[11.5px] font-medium text-ink outline-none focus:border-brand"
+              >
+                {Object.entries(availableModels).map(([key, info]) => (
+                  <option key={key} value={key}>{info.name}</option>
+                ))}
+                {Object.keys(availableModels).length === 0 && (
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                )}
+              </select>
+            </div>
+            <div className="h-4 w-px bg-line" />
             <span className="text-[11px] font-medium text-sub">Atajos:</span>
             {COMMANDS.map(({ cmd, label, icon: Icon }) => (
               <button
